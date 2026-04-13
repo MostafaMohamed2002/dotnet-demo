@@ -1,0 +1,11 @@
+id,patientName,doctorName,appointmentDate,reason,status
+101,Alice Johnson,Dr. Smith,2026-04-15 10:30,Checkup,Scheduled
+102,Bob Williams,Dr. Jones,2026-04-14 14:00,Follow-up,Scheduled
+103,Charlie Brown,Dr. Smith,2026-04-10 09:00,Surgery,Completed
+104,Diana Prince,Dr. Wilson,2026-04-20 16:30,Consultation,Scheduled
+105,Eve Martinez,Dr. Smith,2026-04-12 11:00,Checkup,Cancelled
+106,Frank Thompson,Dr. Jones,2026-04-18 13:30,Lab work,Scheduled
+107,Grace Lee,Dr. Wilson,2026-04-22 15:00,Checkup,Scheduled
+108,Henry Davis,Dr. Smith,2026-04-16 12:00,Injection,Scheduled
+109,Ivy Chen,Dr. Jones,2026-04-17 10:30,Consultation,Completed
+110,Jack Miller,Dr. Wilson,2026-04-11 14:30,Checkup,Scheduled
