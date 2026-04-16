@@ -429,18 +429,114 @@ catch (DoctorNotAvailableException ex)
 
 ### Null-Coalescing (`??`)
 
+Returns the left operand if it's **not null**, otherwise the right operand.
+
 ```csharp
 string displayName = patient.MiddleName ?? patient.FirstName ?? "Unknown";
 ```
 
+**Traced execution:**
+
+```csharp
+var patient = new Patient { FirstName = "Alice", MiddleName = null };
+
+// Step 1: Check patient.MiddleName
+// patient.MiddleName = null  →  Check next
+
+// Step 2: Check patient.FirstName
+// patient.FirstName = "Alice"  →  Use this
+
+string displayName = "Alice";
+```
+
+**Another trace:**
+
+```csharp
+var patient = new Patient { FirstName = "Bob", MiddleName = "James" };
+
+// Step 1: Check patient.MiddleName
+// patient.MiddleName = "James"  →  Use this (not null, stop evaluation)
+
+string displayName = "James";
+// Note: patient.FirstName is NEVER evaluated (short-circuit)
+```
+
+**Practical example with clinic data:**
+
+```csharp
+var patient = new Patient 
+{ 
+    Email = null,
+    FallbackEmail = "backup@clinic.com",
+    DefaultEmail = "noreply@clinic.com"
+};
+
+// Uses first non-null value
+string notificationEmail = patient.Email 
+    ?? patient.FallbackEmail 
+    ?? patient.DefaultEmail 
+    ?? throw new InvalidOperationException("No email available");
+
+Console.WriteLine(notificationEmail);  // "backup@clinic.com"
+```
+
+---
+
 ### Null-Coalescing Assignment (`??=`)
+
+Only assigns if the left operand is **null**.
 
 ```csharp
 patient.PhoneNumber ??= "000-000-0000";
-// Only assign if null
 ```
 
+**Traced execution:**
+
+```csharp
+// Case 1: PhoneNumber is null
+var patient = new Patient { PhoneNumber = null };
+
+// Is PhoneNumber null?  YES  →  Assign default
+patient.PhoneNumber ??= "000-000-0000";
+// Result: PhoneNumber = "000-000-0000"
+
+
+// Case 2: PhoneNumber already has a value
+var patient = new Patient { PhoneNumber = "555-1234" };
+
+// Is PhoneNumber null?  NO  →  Skip assignment
+patient.PhoneNumber ??= "000-000-0000";
+// Result: PhoneNumber = "555-1234" (unchanged)
+```
+
+**Real-world usage:**
+
+```csharp
+public void EnsurePatientHasPhoneNumber(Patient patient)
+{
+    // Only set default if patient doesn't already have a phone
+    patient.PrimaryPhone ??= "000-000-0000";
+    patient.SecondaryPhone ??= patient.PrimaryPhone;  // Reuse primary as secondary default
+    
+    Console.WriteLine($"Primary: {patient.PrimaryPhone}, Secondary: {patient.SecondaryPhone}");
+}
+
+// Trace 1: New patient with no phone
+var newPatient = new Patient { PrimaryPhone = null, SecondaryPhone = null };
+EnsurePatientHasPhoneNumber(newPatient);
+// Output: "Primary: 000-000-0000, Secondary: 000-000-0000"
+
+// Trace 2: Patient with existing phone
+var existingPatient = new Patient { PrimaryPhone = "555-9999", SecondaryPhone = null };
+EnsurePatientHasPhoneNumber(existingPatient);
+// Output: "Primary: 555-9999, Secondary: 555-9999"
+```
+
+---
+
 ### Ternary Operator
+
+Conditional expression: `condition ? valueIfTrue : valueIfFalse`
 
 ```csharp
 string status = appointment.Status == AppointmentStatus.Completed 
@@ -448,10 +544,190 @@ string status = appointment.Status == AppointmentStatus.Completed
     : "Pending";
 ```
 
-### Null-Conditional Operator (`?.`)
+**Traced execution:**
 
 ```csharp
-string? city = patient?.Address?.City;  // No NullReferenceException if patient or Address is null
+// Case 1: Status is Completed
+var appointment = new Appointment { Status = AppointmentStatus.Completed };
+
+// Evaluate condition: appointment.Status == AppointmentStatus.Completed
+// Result: TRUE  →  Use first branch
+
+string status = "Completed";
+
+
+// Case 2: Status is Scheduled
+var appointment = new Appointment { Status = AppointmentStatus.Scheduled };
+
+// Evaluate condition: appointment.Status == AppointmentStatus.Scheduled
+// Result: FALSE  →  Use second branch
+
+string status = "Pending";
+```
+
+**Nested ternary (not recommended, use switch instead):**
+
+```csharp
+var appointment = new Appointment { Status = AppointmentStatus.NoShow };
+
+string message = appointment.Status == AppointmentStatus.Scheduled 
+    ? "Scheduled" 
+    : appointment.Status == AppointmentStatus.Completed 
+        ? "Completed" 
+        : appointment.Status == AppointmentStatus.Cancelled 
+            ? "Cancelled" 
+            : appointment.Status == AppointmentStatus.NoShow
+                ? "No Show"
+                : "Unknown";
+
+// Result: "No Show"
+
+// ✅ Better: Use switch expression
+string message = appointment.Status switch
+{
+    AppointmentStatus.Scheduled => "Scheduled",
+    AppointmentStatus.Completed => "Completed",
+    AppointmentStatus.Cancelled => "Cancelled",
+    AppointmentStatus.NoShow => "No Show",
+    _ => "Unknown"
+};
+```
+
+---
+
+### Null-Conditional Operator (`?.`)
+
+Safely accesses members of potentially-null objects. Returns **null** instead of throwing NullReferenceException.
+
+```csharp
+string? city = patient?.Address?.City;
+```
+
+**Traced execution:**
+
+```csharp
+// Case 1: Patient is not null, Address is not null
+var patient = new Patient 
+{ 
+    Address = new Address { City = "New York" } 
+};
+
+// Step 1: Is patient null?  NO  →  Access Address
+// Step 2: Is Address null?  NO  →  Access City
+string? city = "New York";
+
+
+// Case 2: Patient is not null, but Address is null
+var patient = new Patient { Address = null };
+
+// Step 1: Is patient null?  NO  →  Try to access Address
+// Step 2: Is Address null?  YES  →  Stop (return null, don't access City)
+string? city = null;
+
+
+// Case 3: Patient itself is null
+Patient? patient = null;
+
+// Step 1: Is patient null?  YES  →  Stop immediately (return null)
+// The .Address?.City is NEVER evaluated
+string? city = null;
+```
+
+**Practical clinic example:**
+
+```csharp
+public string GetPatientCity(Patient? patient)
+{
+    // Safely navigates through potentially-null chain
+    return patient?.Address?.City ?? "City not available";
+}
+
+// Trace 1: Patient is null
+Patient? patient = null;
+string city = GetPatientCity(patient);
+// patient?.Address  →  null (short-circuit)
+// ?? "City not available"  →  Use default
+// Result: "City not available"
+
+
+// Trace 2: Patient exists, Address is null
+var patient = new Patient { Address = null };
+string city = GetPatientCity(patient);
+// patient?.Address  →  null 
+// ?? "City not available"  →  Use default
+// Result: "City not available"
+
+
+// Trace 3: Full chain exists
+var patient = new Patient 
+{ 
+    Address = new Address { City = "Boston" } 
+};
+string city = GetPatientCity(patient);
+// patient?.Address?.City  →  "Boston"
+// ?? "City not available"  →  Left side not null, use it
+// Result: "Boston"
+```
+
+**With method calls:**
+
+```csharp
+public class Appointment
+{
+    public DateTime? ScheduledTime { get; set; }
+    public Patient? AssignedPatient { get; set; }
+    
+    public string GetScheduledTimeDisplay()
+    {
+        // Safely call method on potentially-null property
+        return ScheduledTime?.ToString("g") ?? "Not scheduled";
+    }
+    
+    public string GetPatientEmail()
+    {
+        // Safely chain with method calls
+        return AssignedPatient?.GetContactEmail() ?? "No contact info";
+    }
+}
+
+// Traces:
+var apt1 = new Appointment { ScheduledTime = new DateTime(2024, 12, 25, 14, 30, 0) };
+string display1 = apt1.GetScheduledTimeDisplay();
+// ScheduledTime != null  →  Call ToString("g")
+// Result: "12/25/2024 2:30 PM"
+
+var apt2 = new Appointment { ScheduledTime = null };
+string display2 = apt2.GetScheduledTimeDisplay();
+// ScheduledTime == null  →  Return null (don't call ToString)
+// ?? "Not scheduled"  →  Use default
+// Result: "Not scheduled"
+```
+
+---
+
+## Comparison: `?.` vs `??` vs `?:`
+
+| Operator | Purpose | Example | Behavior |
+|----------|---------|---------|----------|
+| `?.` | Safe member access | `obj?.Property` | Returns null if obj is null |
+| `??` | Null coalescing | `x ?? y` | Returns y if x is null |
+| `?:` | Ternary conditional | `x ? y : z` | Returns y if x true, else z |
+
+**Combined in practice:**
+
+```csharp
+// Safe access (?.`) + coalesce (`??`) + conditional (`?:`)
+string result = patient?.Address?.City 
+    ?? (patient?.Email != null ? "Has email" : "No contact info");
+
+// Trace:
+var patient = new Patient { Address = null, Email = "test@clinic.com" };
+
+// Step 1: patient?.Address?.City  →  null (Address is null)
+// Step 2: ?? checks left side  →  null, evaluate right side
+// Step 3: patient?.Email != null  →  "test@clinic.com" != null  →  TRUE
+// Step 4: ternary returns "Has email"
+// Result: "Has email"
 ```
 
 ---

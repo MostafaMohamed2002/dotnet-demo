@@ -13,6 +13,8 @@ public class Appointment
     public string ReasonForVisit { get; set; } = string.Empty;
     // Nullable: appointment may be rescheduled; null means no reschedule yet
     public DateTime? RescheduledTime { get; set; }
+    // Appointment status: tracks lifecycle state
+    public AppointmentStatus Status { get; set; } = AppointmentStatus.Scheduled;
 
     // Computed method: checks if the appointment is in the future (matches task's IsUpcoming() call)
     public bool IsUpcoming() => ScheduledTime > DateTime.UtcNow;
